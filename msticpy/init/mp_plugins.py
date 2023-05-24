@@ -24,6 +24,7 @@ PluginFolders:
 
 
 import contextlib
+import pkgutil
 import sys
 from importlib import import_module
 from inspect import getmembers, isabstract, isclass
@@ -67,8 +68,26 @@ _PLUGIN_TYPES = {
 }
 
 
+def iter_namespace(ns_pkg):
+    # Specifying the second argument (prefix) to iter_modules makes the
+    # returned name an absolute name instead of a relative one. This allows
+    # import_module to work without having to do additional modification to
+    # the name.
+    return pkgutil.iter_modules(ns_pkg.__path__, ns_pkg.__name__ + ".")
+
+
 def read_plugins(plugin_paths: Union[str, Iterable[str]]):
-    """Load plugins from folders specified in msticpyconfig.yaml."""
+    """Load plugins from msticpy.extensions namespace and folders specified in msticpyconfig.yaml."""
+    with contextlib.suppress(ModuleNotFoundError):
+        import msticpy.extensions
+
+        discovered_plugins = {
+            name: import_module(name)
+            for _, name, _ in iter_namespace(msticpy.extensions)
+        }
+        for plugin_module in discovered_plugins.values():
+            load_plugins_from_module(plugin_module)
+
     plugin_config = [plugin_paths] if isinstance(plugin_paths, str) else plugin_paths
     if not plugin_config:
         with contextlib.suppress(KeyError):
@@ -85,22 +104,27 @@ def load_plugins_from_path(plugin_path: Union[str, Path]):
     for module_file in Path(plugin_path).glob("*.py"):
         try:
             module = import_module(module_file.stem)
+            load_plugins_from_module(module)
         except ImportError:
             warn(f"Unable to import plugin {module_file} from {plugin_path}")
-        for name, obj in getmembers(module, isclass):
-            if not isinstance(obj, type):
-                continue
-            if isabstract(obj):
-                continue
-            plugin_type, reg_object = _get_plugin_type(obj)
-            if plugin_type:
-                # if no specified registration, use the root class
-                reg_dest = reg_object.reg_dest or plugin_type
-                plugin_names = getattr(obj, reg_object.name_property, name)
-                if not isinstance(plugin_names, (list, tuple)):
-                    plugin_names = (plugin_names,)
-                for plugin_name in plugin_names:
-                    reg_dest.CUSTOM_PROVIDERS[plugin_name] = obj
+
+
+def load_plugins_from_module(module: ModuleType):
+    """Load all compatible plugins found in module."""
+    for name, obj in getmembers(module, isclass):
+        if not isinstance(obj, type):
+            continue
+        if isabstract(obj):
+            continue
+        plugin_type, reg_object = _get_plugin_type(obj)
+        if plugin_type:
+            # if no specified registration, use the root class
+            reg_dest = reg_object.reg_dest or plugin_type
+            plugin_names = getattr(obj, reg_object.name_property, name)
+            if not isinstance(plugin_names, (list, tuple)):
+                plugin_names = (plugin_names,)
+            for plugin_name in plugin_names:
+                reg_dest.CUSTOM_PROVIDERS[plugin_name] = obj
 
 
 def _get_plugin_type(plugin_class):
