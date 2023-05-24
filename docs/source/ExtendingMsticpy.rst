@@ -33,3 +33,4 @@ Extension points documentation
    extending/WritingDataProviders
    extending/WritingTIAndContextProviders
    extending/PluginFramework
+   extending/PackageBasedExtensions

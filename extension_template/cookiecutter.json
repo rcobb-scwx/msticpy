@@ -1,0 +1,10 @@
+{
+    "extension_name": "Extension name as a valid Python reference",
+    "extension_module_reference": "{{ cookiecutter.extension_name|slugify(separator='_') }}",
+    "extension_description": "Description of this MSTICPY extension",
+    "author_name": "John Doe",
+    "author_email": "jdoe@foo.com",
+    "github_project_url": "https://github.com/foo/bar",
+    "python_min_version_required": [">=3.8", ">=3.9", ">=3.10", ">=3.11"],
+    "_extensions": ["cookiecutter.extensions.SlugifyExtension"]
+}
