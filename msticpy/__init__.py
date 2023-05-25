@@ -116,7 +116,7 @@ initialization and checks are performed.
 """
 import importlib
 import os
-from typing import Any, Iterable, Union
+from typing import Any, Iterable, Optional, Union
 
 from . import nbwidgets
 
@@ -190,7 +190,7 @@ def __dir__():
     return sorted(set(_STATIC_ATTRIBS + list(_DEFAULT_IMPORTS)))
 
 
-def load_plugins(plugin_paths: Union[str, Iterable[str]]):
+def load_plugins(plugin_paths: Optional[Union[str, Iterable[str]]] = None):
     """
     Load plugins from specified paths or configuration.
 
@@ -211,3 +211,6 @@ def load_plugins(plugin_paths: Union[str, Iterable[str]]):
     from .init.mp_plugins import read_plugins
 
     read_plugins(plugin_paths)
+
+
+load_plugins()

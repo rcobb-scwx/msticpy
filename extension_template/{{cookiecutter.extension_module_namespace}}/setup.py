@@ -15,7 +15,8 @@ setup(
     long_description_content_type="text/markdown",
     version="0.1a",
     packages=find_namespace_packages(),
-    namespace_packages=["msticpy.extensions"],
+    namespace_packages=["msticpy_extensions"],
+     package_data={"msticpy_extensions.{{cookiecutter.extension_module_reference}}.queries": ["*.yaml"]},
     python_requires="{{cookiecutter.python_min_version_required}}",
     install_requires=requirements,
 )

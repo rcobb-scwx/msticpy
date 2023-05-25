@@ -24,6 +24,7 @@ PluginFolders:
 
 
 import contextlib
+import logging
 import pkgutil
 import sys
 from importlib import import_module
@@ -47,6 +48,8 @@ __author__ = "Ian Hellen"
 
 _PLUGIN_KEY = "PluginFolders"
 
+logger = logging.getLogger(__name__)
+
 
 class PluginReg(NamedTuple):
     """Plugin registration tuple."""
@@ -55,9 +58,6 @@ class PluginReg(NamedTuple):
     name_property: Optional[str]  # Custom name(s) for provider
 
 
-# This dictionary maps the class of the plugin to
-# the module or class where the CUSTOM_PROVIDERS dictionary
-# for that provider type is defined.
 # This dictionary maps the class of the plugin to
 # the module or class where the CUSTOM_PROVIDERS dictionary
 # for that provider type is defined.
@@ -79,11 +79,11 @@ def iter_namespace(ns_pkg):
 def read_plugins(plugin_paths: Union[str, Iterable[str]]):
     """Load plugins from msticpy.extensions namespace and folders specified in msticpyconfig.yaml."""
     with contextlib.suppress(ModuleNotFoundError):
-        import msticpy.extensions
+        import msticpy_extensions
 
         discovered_plugins = {
             name: import_module(name)
-            for _, name, _ in iter_namespace(msticpy.extensions)
+            for _, name, _ in iter_namespace(msticpy_extensions)
         }
         for plugin_module in discovered_plugins.values():
             load_plugins_from_module(plugin_module)
@@ -111,6 +111,7 @@ def load_plugins_from_path(plugin_path: Union[str, Path]):
 
 def load_plugins_from_module(module: ModuleType):
     """Load all compatible plugins found in module."""
+    logging.info(f"Attempting to load module {module}")
     for name, obj in getmembers(module, isclass):
         if not isinstance(obj, type):
             continue
