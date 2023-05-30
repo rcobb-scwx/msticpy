@@ -4,6 +4,10 @@
 # license information.
 # --------------------------------------------------------------------------
 """Data provider loader."""
+import logging
+import sys
+import importlib.resources
+
 from datetime import datetime
 from functools import partial
 from itertools import tee
@@ -39,6 +43,7 @@ _COMPATIBLE_DRIVER_MAPPINGS = {
     "kusto_new": ["kusto"],
 }
 
+logger = logging.getLogger(__name__)
 
 # These are mixin classes that do not have an __init__ method
 # pylint: disable=super-init-not-called
@@ -125,9 +130,15 @@ class QueryProvider(QueryProviderConnectionsMixin, QueryProviderUtilsMixin):
         # Add any query files
         data_env_queries: Dict[str, QueryStore] = {}
         if driver.use_query_paths:
-            data_env_queries.update(
-                self._read_queries_from_paths(query_paths=query_paths)
-            )
+            if query_paths:
+                data_env_queries.update(
+                    self._read_queries_from_paths(query_paths=query_paths)
+                )
+            else:
+                logger.debug(f"Attempting to automatically load driver queries from module {driver}")
+                data_env_queries.update(
+                    self._read_queries_from_module(driver_class=self.driver_class)
+                )
         self.query_store = data_env_queries.get(
             self.environment_name, QueryStore(self.environment_name)
         )
@@ -317,6 +328,29 @@ class QueryProvider(QueryProviderConnectionsMixin, QueryProviderUtilsMixin):
             _resolve_package_path(root_path).joinpath(data_env.casefold())
             for data_env in data_envs
         ]
+
+    def _read_queries_from_module(self, driver_class: type) -> Dict[str, QueryStore]:
+        """Fetch queries from YAML files in module resources."""
+        python_version_info = sys.version_info
+
+        if hasattr(driver_class, "MODULE"):
+            driver_module = sys.modules[driver_class.MODULE]
+        else:
+            driver_module = sys.modules[driver_class.__module__]
+
+        if python_version_info >= (3, 7) and python_version_info < (3, 9):
+            # importlib.resources.path introduced in 3.7, depreciated in 3.11
+            module_resources = importlib.resources.path(driver_module, "queries")
+        elif python_version_info >= (3, 9):
+            # importlib.resources.files and importlib.resources.path.as_file introduced in 3.9
+            module_resources = importlib.resources.as_file(
+                importlib.resources.files(driver_module).joinpath("queries")
+            )
+        else:
+            raise ModuleNotFoundError(f"Driver queries not found for module {driver_module}")
+
+        with module_resources as queries_dir:
+            return QueryStore.import_files([str(queries_dir)], recursive=True)
 
     def _read_queries_from_paths(self, query_paths) -> Dict[str, QueryStore]:
         """Fetch queries from YAML files in specified paths."""
